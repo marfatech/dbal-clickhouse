@@ -14,14 +14,12 @@ declare(strict_types=1);
 
 namespace FOD\DBALClickHouse;
 
-use ArrayIterator;
 use ClickHouseDB\Client;
 use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
 use Doctrine\DBAL\FetchMode;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
-
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -47,32 +45,50 @@ use function trim;
  */
 class ClickHouseStatement implements \IteratorAggregate, Statement
 {
-    protected Client $smi2CHClient;
-    protected string $statement;
-    protected AbstractPlatform $platform;
+    /** @var Client */
+    protected $smi2CHClient;
 
-    protected array $rows = [];
-    protected array $values = [];
-    protected array $types = [];
+    /** @var string */
+    protected $statement;
 
-    protected ?ArrayIterator $iterator;
+    /** @var AbstractPlatform */
+    protected $platform;
 
-    private int $fetchMode = FetchMode::ASSOCIATIVE;
+    /** @var mixed[] */
+    protected $rows = [];
+
+    /**
+     * Query parameters for prepared statement (key => value)
+     * @var mixed[]
+     */
+    protected $values = [];
+
+    /**
+     * Query parameters' types for prepared statement (key => value)
+     * @var mixed[]
+     */
+    protected $types = [];
+
+    /** @var \ArrayIterator|null */
+    protected $iterator;
+
+    /** @var int */
+    private $fetchMode = FetchMode::ASSOCIATIVE;
 
     public function __construct(Client $client, string $statement, AbstractPlatform $platform)
     {
         $this->smi2CHClient = $client;
-        $this->statement = $statement;
-        $this->platform = $platform;
+        $this->statement    = $statement;
+        $this->platform     = $platform;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getIterator(): ArrayIterator
+    public function getIterator() : \ArrayIterator
     {
-        if (!$this->iterator) {
-            $this->iterator = new ArrayIterator($this->rows);
+        if (! $this->iterator) {
+            $this->iterator = new \ArrayIterator($this->rows);
         }
 
         return $this->iterator;
@@ -83,7 +99,7 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
      */
     public function closeCursor()
     {
-        $this->rows = [];
+        $this->rows     = [];
         $this->iterator = null;
 
         return true;
@@ -109,10 +125,10 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
         return true;
     }
 
-    protected function assumeFetchMode(?int $fetchMode = null): int
+    protected function assumeFetchMode(?int $fetchMode = null) : int
     {
         $mode = $fetchMode ?: $this->fetchMode;
-        if (!in_array($mode, [
+        if (! in_array($mode, [
             FetchMode::ASSOCIATIVE,
             FetchMode::NUMERIC,
             \PDO::FETCH_KEY_PAIR,
@@ -125,7 +141,6 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
 
     /**
      * {@inheritDoc}
-     * @throws \Exception
      */
     public function fetch($fetchMode = null, $cursorOrientation = \PDO::FETCH_ORI_NEXT, $cursorOffset = 0)
     {
@@ -147,7 +162,7 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
 
         if ($this->assumeFetchMode($fetchMode) === \PDO::FETCH_KEY_PAIR) {
             if (count($data) < 2) {
-                throw new \RuntimeException(
+                throw new \Exception(
                     'To fetch in \PDO::FETCH_KEY_PAIR mode, result set must contain at least 2 columns'
                 );
             }
@@ -181,9 +196,9 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
 
         if ($this->assumeFetchMode($fetchMode) === \PDO::FETCH_KEY_PAIR) {
             return array_map(
-                static function ($row) {
+                function ($row) {
                     if (count($row) < 2) {
-                        throw new \RuntimeException(
+                        throw new \Exception(
                             'To fetch in \PDO::FETCH_KEY_PAIR mode, result set must contain at least 2 columns'
                         );
                     }
@@ -213,44 +228,33 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
     /**
      * {@inheritDoc}
      */
-    public function bindValue($param, $value, $type = null): bool
+    public function bindValue($param, $value, $type = null)
     {
         $this->values[$param] = $value;
-        $this->types[$param] = $type;
-
-        return true;
+        $this->types[$param]  = $type;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function bindParam($column, &$variable, $type = null, $length = null): bool
+    public function bindParam($column, &$variable, $type = null, $length = null)
     {
         $this->values[$column] = &$variable;
-        $this->types[$column] = $type;
-
-        return true;
+        $this->types[$column]  = $type;
     }
 
-    /**
-     * @throws \FOD\DBALClickHouse\ClickHouseException
-     */
-    public function errorCode(): int
+    public function errorCode() : void
     {
-        throw new ClickHouseException('You need to implement ClickHouseStatement::'.__METHOD__.'()');
+        throw new ClickHouseException('You need to implement ClickHouseStatement::' . __METHOD__ . '()');
     }
 
-    /**
-     * @throws \FOD\DBALClickHouse\ClickHouseException
-     */
-    public function errorInfo(): array
+    public function errorInfo() : void
     {
-        throw new ClickHouseException('You need to implement ClickHouseStatement::'.__METHOD__.'()');
+        throw new ClickHouseException('You need to implement ClickHouseStatement::' . __METHOD__ . '()');
     }
 
     /**
      * {@inheritDoc}
-     * @throws \FOD\DBALClickHouse\ClickHouseException
      */
     public function execute($params = null): Result
     {
@@ -264,8 +268,8 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
 
         if ($hasZeroIndex) {
             $statementParts = explode('?', $sql);
-            array_walk($statementParts, function (&$part, $key): void {
-                if (!array_key_exists($key, $this->values)) {
+            array_walk($statementParts, function (&$part, $key) : void {
+                if (! array_key_exists($key, $this->values)) {
                     return;
                 }
 
@@ -275,7 +279,7 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
         } else {
             foreach (array_keys($this->values) as $key) {
                 $sql = preg_replace(
-                    '/('.(is_int($key) ? '\?' : ':'.$key).')/i',
+                    '/(' . (is_int($key) ? '\?' : ':' . $key) . ')/i',
                     $this->getTypedParam($key),
                     $sql,
                     1
@@ -291,12 +295,12 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
     /**
      * {@inheritDoc}
      */
-    public function rowCount(): int
+    public function rowCount() : int
     {
         return 1; // ClickHouse do not return amount of inserted rows, so we will return 1
     }
 
-    public function getSql(): string
+    public function getSql() : string
     {
         return $this->statement;
     }
@@ -306,7 +310,7 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
      * If you want to use any other lib for working with CH -- just update this method
      *
      */
-    protected function processViaSMI2(string $sql): void
+    protected function processViaSMI2(string $sql) : void
     {
         $sql = trim($sql);
 
@@ -319,11 +323,10 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
     }
 
     /**
-     * @param  string|int  $key
-     *
+     * @param string|int $key
      * @throws ClickHouseException
      */
-    protected function getTypedParam($key): string
+    protected function getTypedParam($key) : string
     {
         if ($this->values[$key] === null) {
             return 'NULL';
@@ -344,8 +347,8 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
                 $values = $this->values[$key];
                 if (is_int(current($values)) || is_float(current($values))) {
                     array_map(
-                        static function ($value): void {
-                            if (!is_int($value) && !is_float($value)) {
+                        function ($value) : void {
+                            if (! is_int($value) && ! is_float($value)) {
                                 throw new ClickHouseException(
                                     'Array values must all be int/float or string, mixes not allowed'
                                 );
@@ -359,18 +362,18 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
                     }, $values);
                 }
 
-                return '['.implode(', ', $values).']';
+                return '[' . implode(', ', $values) . ']';
             }
         }
 
         if ($type === ParameterType::INTEGER) {
-            return (string)$this->values[$key];
+            return (string) $this->values[$key];
         }
 
         if ($type === ParameterType::BOOLEAN) {
-            return (string)(int)(bool)$this->values[$key];
+            return (string) (int) (bool) $this->values[$key];
         }
 
-        return $this->platform->quoteStringLiteral((string)$this->values[$key]);
+        return $this->platform->quoteStringLiteral((string) $this->values[$key]);
     }
 }
