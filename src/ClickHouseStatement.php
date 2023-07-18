@@ -157,7 +157,7 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
         }
 
         if ($this->assumeFetchMode($fetchMode) === FetchMode::ASSOCIATIVE) {
-            return array_values($data) + $data;
+            return $data;
         }
 
         if ($this->assumeFetchMode($fetchMode) === \PDO::FETCH_KEY_PAIR) {
@@ -232,6 +232,8 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
     {
         $this->values[$param] = $value;
         $this->types[$param]  = $type;
+
+        return true;
     }
 
     /**
