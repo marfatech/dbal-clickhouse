@@ -186,12 +186,7 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
         }
 
         if ($this->assumeFetchMode($fetchMode) === FetchMode::ASSOCIATIVE) {
-            return array_map(
-                function ($row) {
-                    return array_values($row) + $row;
-                },
-                $this->rows
-            );
+            return $this->rows;
         }
 
         if ($this->assumeFetchMode($fetchMode) === \PDO::FETCH_KEY_PAIR) {
