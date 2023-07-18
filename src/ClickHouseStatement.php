@@ -285,7 +285,7 @@ class ClickHouseStatement implements \IteratorAggregate, Statement
 
         $this->processViaSMI2($sql);
 
-        return new ClickhouseResult($this);
+        return new ClickHouseResult($this);
     }
 
     /**
